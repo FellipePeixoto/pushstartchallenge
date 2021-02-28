@@ -1,0 +1,104 @@
+[
+    {
+        "name": "Growing",
+        "initial": {
+            "size": 1,
+            "color": "#ff0000"
+        },
+        "final": {
+            "size": 2,
+            "color": "#ff0000"
+        },
+        "modifiers": [
+            {
+                "type": "resize",
+                "size": 2
+            }
+        ]
+    },
+    {
+        "name": "Let it Blue",
+        "initial": {
+            "size": 1,
+            "color": "#ff0000"
+        },
+        "final": {
+            "size": 1,
+            "color": "#0000ff"
+        },
+        "modifiers": [
+            {
+                "type": "colorize",
+                "color": "#0000ff"
+            }
+        ]
+    },
+    {
+        "name": "Pulsating",
+        "initial": {
+            "size": 2,
+            "color": "#ff0000"
+        },
+        "final": {
+            "size": 2,
+            "color": "#ff0000"
+        },
+        "modifiers": [
+            {
+                "type": "resize",
+                "size": 1
+            },
+            {
+                "type": "resize",
+                "size": 2
+            }
+        ]
+    },
+    {
+        "name": "Mix and Match",
+        "initial": {
+            "size": 2,
+            "color": "#ff0000"
+        },
+        "final": {
+            "size": 1,
+            "color": "#0000ff"
+        },
+        "modifiers": [
+            {
+                "type": "colorize",
+                "color": "#0000ff"
+            },
+            {
+                "type": "resize",
+                "size": 1
+            }
+        ]
+    },
+    {
+        "name": "Time to Choose",
+        "initial": {
+            "size": 1,
+            "color": "#ff0000"
+        },
+        "final": {
+            "size": 2,
+            "color": "#ff0000"
+        },
+        "modifiers": [
+            {
+                "type": "select",
+                "options": [
+                    {
+                        "type": "colorize",
+                        "color": "#0000ff"
+                    },
+                    {
+                        "type": "resize",
+                        "size": 2
+                    }
+                ]
+            }
+        ]
+    }
+]
