@@ -19,6 +19,8 @@ var appVerticalCenter = app.renderer.view.height / 2;
 var appWidth = app.renderer.view.width;
 var appCurrentLevel = {
     name: "",
+    startTime: 0,
+    endTime: 0,
     index: -1,
     container: null,
     blockIsMoving: false,
@@ -28,11 +30,11 @@ var appCurrentLevel = {
         nameId: "",
         type: "",
         container: null
-    }]
+    }],
 };
 
 var request = new XMLHttpRequest();
-request.open("GET", "resources/levels.json", false);
+request.open("GET", "https://teste.pushstart.com.br/api/blocks/levels", false);
 request.send(null);
 var levels = JSON.parse(request.responseText);
 
@@ -141,8 +143,10 @@ function buildLevel(levelIndex) {
     auxContainer.addChild(initialBlock);
 
     return {
-        name: levels[levelIndex],
+        name: levels[levelIndex].name,
         index: levelIndex,
+        startTime: Date.now(),
+        endTime: 0,
         container: auxContainer,
         blockIsMoving: false,
         startBlock: {
@@ -186,6 +190,7 @@ function someModifierHasNoEffect() {
 }
 
 function moveBlockAlong() {
+    appCurrentLevel.endTime = Date.now();
     let startBlock = appCurrentLevel.container.getChildByName(StartBlockTag);
     let finalBlock = appCurrentLevel.container.getChildByName(FinalBlockTag);
     let modifiersCount = levels[appCurrentLevel.index].modifiers.length;
@@ -268,6 +273,10 @@ function moveBlockAlong() {
             ease: "sine",
             onComplete: function () {
                 if (assertBlocks(appCurrentLevel.startBlock, appCurrentLevel.finalBlock)) {
+                    sendScore(
+                        appCurrentLevel.name,
+                        appCurrentLevel.startTime, 
+                        appCurrentLevel.endTime);
                     nextLevel();
                 }
                 else {
@@ -287,6 +296,19 @@ function nextLevel() {
     app.stage.removeChild(appCurrentLevel.container);
     appCurrentLevel = buildLevel(nextLevelIndex);
     app.stage.addChild(appCurrentLevel.container);
+}
+
+function sendScore(levelName, startTime, endTime) {
+    let diff = endTime - startTime;
+    let data = JSON.stringify({
+        levelName: levelName,
+        score: diff
+    });
+
+    let request = new XMLHttpRequest();
+    request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
+    request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+    request.send(data);
 }
 
 function reloadLevel() {
@@ -377,7 +399,7 @@ function buildResizeModifier(id, size) {
     block = new PIXI.Graphics();
     block.lineStyle(1, 0xFFFFFF, 1);
     block.beginFill();
-    block.drawRect(0, 0, AppBlockSize, AppBlockSize);
+    block.drawRect(-1, -1, AppBlockSize, AppBlockSize);
     block.endFill();
 
     switch (size) {
