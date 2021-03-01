@@ -1,3 +1,5 @@
+gsap.registerPlugin(PixiPlugin);
+
 const AppBlockSize = 35;
 const FinalBlockBorderColor = 0xA8A8A8;
 const LevelStartOffset = 0.1;
@@ -10,12 +12,17 @@ const ColorizeModifierType = "colorize";
 const StartBlockTag = "start block";
 const FinalBlockTag = "final block";
 const ModifierPreTag = "modifier_";
+const buttonFontStyle = {
+    fill: "#FFFFFF"
+};
+const buttonFontStyleMouseOver = {
+    fill: "#a8a8a8"
+};
 
 var app = new PIXI.Application({ autoResize: true });
-app.renderer.resize(window.innerWidth, 128);
+app.renderer.resize(window.innerWidth, 150 + 100 + 100);
 document.getElementById("content").appendChild(app.view);
 
-var appVerticalCenter = app.renderer.view.height / 2;
 var appWidth = app.renderer.view.width;
 var appCurrentLevel = {
     name: "",
@@ -38,20 +45,98 @@ request.open("GET", "https://teste.pushstart.com.br/api/blocks/levels", false);
 request.send(null);
 var levels = JSON.parse(request.responseText);
 
+var gameTimeline;
+var endGameUI = buildEndGameMenu(app.renderer.width);
 appCurrentLevel = buildLevel(0);
-app.stage.addChild(appCurrentLevel.container);
+app.stage.addChild(appCurrentLevel.container, endGameUI);
+
+function buildEndGameMenu(currentWidth) {
+    let container = new PIXI.Container();
+
+    let leftSide = new PIXI.Container();
+    let leftSideBorder = new PIXI.Graphics();
+    leftSideBorder.beginFill();
+    leftSideBorder.drawRect(0, 0, currentWidth * 0.7, 150);
+    leftSideBorder.endFill();
+
+    let seekbarContainer = new PIXI.Container();
+    let seekBar = new PIXI.Graphics();
+    seekBar.beginFill(0xFFFFFF);
+    seekBar.drawRect(0, 0, 500, 20);
+    seekBar.endFill();
+    seekBar.interactive = true;
+    seekBar.on("click", (event) => {
+        seekReplay(event.data.getLocalPosition(seekBar).x / seekBar.width);
+    });
+    let seekCursor = new PIXI.Graphics();
+    seekCursor.beginFill(0xFF0000);
+    seekCursor.drawRect(0, 0, 20, 20);
+    seekCursor.endFill();
+
+    seekbarContainer.addChild(seekBar, seekCursor);
+    leftSide.addChild(leftSideBorder, seekbarContainer);
+
+    let rightSide = new PIXI.Container();
+    let rightSideBorder = new PIXI.Graphics();
+    rightSideBorder.beginFill();
+    rightSideBorder.drawRect(0, 0, currentWidth * 0.3, 150);
+    rightSideBorder.endFill();
+    rightSide.addChild(rightSideBorder);
+    rightSide.x = leftSide.width;
+
+
+    let buttonReplay = new PIXI.Text("Replay", buttonFontStyle);
+    buttonReplay.interactive = true;
+    buttonReplay.on("click", (event) => {
+        playReplay();
+    });
+    buttonReplay.on('mouseover', (event) => {
+        buttonReplay.style = buttonFontStyleMouseOver;
+    });
+    buttonReplay.on('mouseout', (event) => {
+        buttonReplay.style = buttonFontStyle;
+    });
+
+    let nextLevelButton = new PIXI.Text("Next Level", buttonFontStyle);
+    nextLevelButton.interactive = true;
+    nextLevelButton.on('click', (event) => {
+        if (assertBlocks(appCurrentLevel.startBlock, appCurrentLevel.finalBlock)) {
+            nextLevel();
+        }
+    });
+    nextLevelButton.on('mouseover', (event) => {
+        nextLevelButton.style = buttonFontStyleMouseOver;
+    });
+    nextLevelButton.on('mouseout', (event) => {
+        nextLevelButton.style = buttonFontStyle;
+    });
+    nextLevelButton.y = 35;
+
+    rightSide.addChild(buttonReplay, nextLevelButton);
+    container.addChild(rightSide, leftSide);
+
+    container.visible = false;
+    container.y = 250;
+    return container;
+}
+
+function buildReplay() {
+}
 
 function buildLevel(levelIndex) {
-
     if (levelIndex < 0 || levelIndex >= levels.length) {
         return;
     }
+
+    let auxContainer = new PIXI.Container();
+    auxContainer.y = 150;
+    let containerVerticalCenter = auxContainer.x + auxContainer.height / 2;
 
     let initialBlockStartColor = stringHEXtoHEX(levels[levelIndex].initial.color);
     let initialBlockStartSize = levels[levelIndex].initial.size;
     let initialBlock = buildStartBlock(initialBlockStartColor, initialBlockStartSize);
     let initialBLockStartPositionX = (appWidth * LevelStartOffset);
-    let initialBlockPositionY = appVerticalCenter;
+    let initialBlockPositionY = containerVerticalCenter;
     initialBlock.interactive = true;
     initialBlock.on('click', (event) => {
         blockClick();
@@ -66,7 +151,7 @@ function buildLevel(levelIndex) {
     let finalBlockColor = stringHEXtoHEX(levels[levelIndex].final.color);
     let finalBlockSize = levels[levelIndex].final.size;
     let finalBlockPositionX = (appWidth * LevelEndOffset);
-    let finalBlockPositionY = appVerticalCenter;
+    let finalBlockPositionY = containerVerticalCenter;
     let finalBlock = buildFinalBlock(finalBlockColor, finalBlockSize);
     finalBlock.x = finalBlockPositionX;
     finalBlock.y = finalBlockPositionY;
@@ -78,14 +163,13 @@ function buildLevel(levelIndex) {
     levelLine.lineStyle(2, 0xA8A8A8, 1);
     levelLine.lineTo(lineEnd, 0);
     levelLine.x = lineStart;
-    levelLine.y = appVerticalCenter;
+    levelLine.y = containerVerticalCenter;
 
     let levelModifiers = levels[levelIndex].modifiers;
-    let modifierBlockYPosition = appVerticalCenter;
+    let modifierBlockYPosition = containerVerticalCenter;
     let modifierBlockPart = (finalBlockPositionX - initialBLockStartPositionX) / (levelModifiers.length + 1);
     var lastModifierXPosition = initialBLockStartPositionX;
 
-    let auxContainer = new PIXI.Container();
     auxContainer.addChild(levelLine);
     auxContainer.addChild(finalBlock);
     let modifiersTemp = [];
@@ -170,7 +254,7 @@ function blockClick() {
         return;
     }
 
-    moveBlockAlong();
+    gameTimeline = moveBlockAlong();
     appCurrentLevel.blockIsMoving = true;
 }
 
@@ -203,10 +287,7 @@ function moveBlockAlong() {
             {
                 duration: MoveIntervalBetweenModifiers,
                 x: modifiersPositionsX[i],
-                ease: "sine",
-                onUpdate: function () {
-
-                }
+                ease: "sine"
             });
 
         switch (appCurrentLevel.modifiers[i].type) {
@@ -221,16 +302,10 @@ function moveBlockAlong() {
                 break;
 
             case ColorizeModifierType:
-                let blockSize = { width: startBlock.width, height: startBlock.height };
                 appCurrentLevel.startBlock.color = appCurrentLevel.modifiers[i].color;
                 timeLine.to(startBlock, {
                     duration: ModifierTransitionInterval,
-                    onComplete: function () {
-                        startBlock.clear();
-                        startBlock.beginFill(appCurrentLevel.modifiers[i].color);
-                        startBlock.drawRect(0, 0, blockSize.width, blockSize.height);
-                        startBlock.endFill();
-                    }
+                    pixi: { fillColor: appCurrentLevel.modifiers[i].color }
                 });
                 break;
 
@@ -249,16 +324,10 @@ function moveBlockAlong() {
                         break;
 
                     case ColorizeModifierType:
-                        let blockSize = { width: startBlock.width, height: startBlock.height };
                         appCurrentLevel.startBlock.color = currentOption.color;
                         timeLine.to(startBlock, {
                             duration: ModifierTransitionInterval,
-                            onComplete: function () {
-                                startBlock.clear();
-                                startBlock.beginFill(currentOption.color);
-                                startBlock.drawRect(0, 0, blockSize.width, blockSize.height);
-                                startBlock.endFill();
-                            }
+                            pixi: { fillColor: currentOption.color },
                         });
                         break;
                 }
@@ -272,18 +341,21 @@ function moveBlockAlong() {
             x: finalBlock.x,
             ease: "sine",
             onComplete: function () {
+
                 if (assertBlocks(appCurrentLevel.startBlock, appCurrentLevel.finalBlock)) {
                     sendScore(
                         appCurrentLevel.name,
-                        appCurrentLevel.startTime, 
+                        appCurrentLevel.startTime,
                         appCurrentLevel.endTime);
-                    nextLevel();
+                    endGameUI.visible = true;
                 }
                 else {
                     reloadLevel();
                 }
             }
         });
+
+    return timeLine;
 }
 
 function nextLevel() {
@@ -293,9 +365,10 @@ function nextLevel() {
         nextLevelIndex = 0;
     }
 
-    app.stage.removeChild(appCurrentLevel.container);
+    app.stage.removeChild(appCurrentLevel.container, endGameUI);
     appCurrentLevel = buildLevel(nextLevelIndex);
-    app.stage.addChild(appCurrentLevel.container);
+    endGameUI = buildEndGameMenu(app.renderer.width);
+    app.stage.addChild(appCurrentLevel.container, endGameUI);
 }
 
 function sendScore(levelName, startTime, endTime) {
@@ -305,10 +378,10 @@ function sendScore(levelName, startTime, endTime) {
         score: diff
     });
 
-    let request = new XMLHttpRequest();
-    request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
-    request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
-    request.send(data);
+    // let request = new XMLHttpRequest();
+    // request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
+    // request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+    // request.send(data);
 }
 
 function reloadLevel() {
@@ -345,6 +418,15 @@ function formatOptionsColorsToHEX(options) {
 
 function buildStartBlock(color, size) {
     let block = new PIXI.Graphics();
+    // let colorMatrix = new PIXI.filters.ColorMatrixFilter();
+    // block.filters = [colorMatrix];
+    // let r = color >> 16 & 0xFF;
+    // let g = color >> 8 & 0xFF;
+    // let b = color & 0xFF;
+    // colorMatrix.matrix[0] = r / 255;
+    // colorMatrix.matrix[6] = g / 255;
+    // colorMatrix.matrix[12] = b / 255;
+    // console.log(block.filters[0].matrix);
 
     block.beginFill(color);
     block.drawRect(0, 0, AppBlockSize, AppBlockSize * size);
@@ -399,7 +481,7 @@ function buildResizeModifier(id, size) {
     block = new PIXI.Graphics();
     block.lineStyle(1, 0xFFFFFF, 1);
     block.beginFill();
-    block.drawRect(-1, -1, AppBlockSize, AppBlockSize);
+    block.drawRect(0, 0, AppBlockSize, AppBlockSize);
     block.endFill();
 
     switch (size) {
@@ -507,7 +589,7 @@ function drawResizeModifier(container, size) {
 }
 
 function setupModifierSelector(id, types) {
-    block = new PIXI.Graphics();
+    let block = new PIXI.Graphics();
     block.lineStyle(1, 0xFFFFFF, 1);
     block.beginFill();
     block.drawRect(0, 0, AppBlockSize, AppBlockSize);
@@ -519,6 +601,10 @@ function setupModifierSelector(id, types) {
 }
 
 function selectorModifierNext(nameId) {
+    if (appCurrentLevel.blockIsMoving) {
+        return;
+    }
+
     let targetModifier = findModifierById(nameId);
     if (targetModifier === null) {
         return;
@@ -539,6 +625,36 @@ function selectorModifierNext(nameId) {
         targetModifier.container = drawColorizeModifier(targetModifier.container, targetModifier.options[optionIndex].color);
     }
     targetModifier.currOptionIndex = optionIndex;
+}
+
+function playReplay() {
+    gameTimeline.play(0);
+}
+
+function resumeReplay() {
+
+}
+
+function pauseReplay() {
+
+}
+
+function seekReplay(position) {
+    if (position > 1)
+    {
+        position = 1;
+    }
+    if (position < 0)
+    {
+        position = 0;
+    }
+
+    console.log(position);
+    console.log(gameTimeline.totalDuration());
+    
+    let cursorPosition = gameTimeline.totalDuration() * position;
+    console.log(cursorPosition);
+    gameTimeline.play(cursorPosition);
 }
 
 function findModifierById(nameId) {
