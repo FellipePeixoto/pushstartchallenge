@@ -371,6 +371,8 @@ function nextLevel() {
     appCurrentLevel = buildLevel(nextLevelIndex);
     endGameUI = buildEndGameMenu(app.renderer.width);
     app.stage.addChild(appCurrentLevel.container, endGameUI);
+    document.getElementById("ranking").innerHTML = '';
+    document.getElementById("level-name").innerHTML = '';
 }
 
 function sendScore(levelName, startTime, endTime) {
@@ -384,6 +386,21 @@ function sendScore(levelName, startTime, endTime) {
     request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
     request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
     request.send(data);
+    let response = request.response;
+    let ranking = JSON.parse(response).ranking;
+    let rankingTitle = document.getElementById("level-name");
+    rankingTitle.innerHTML = 'Ranking for "' + levelName + '" level';
+    let divRanking = document.getElementById("ranking");
+    for(let i in ranking) {
+        let timeInSeconds = ranking[i] /1000;
+        let itemNode = document.createElement("li");
+        if (diff === ranking[i]){
+            itemNode.className = "highlight";
+            itemNode.innerHTML = "YOU --> ";
+        }        
+        itemNode.innerHTML += timeInSeconds + " seconds";
+        divRanking.appendChild(itemNode);
+    }
 }
 
 function reloadLevel() {
@@ -621,10 +638,12 @@ function selectorModifierNext(nameId) {
 }
 
 function bindReplay(onSeekbarUpdate){
-    let tweens = gameTimeline.getChildren();
-    for (let i in tweens) {
-        tweens[i].eventCallback("onComplete", null);
-    }
+    gameTimeline.eventCallback("onComplete", () => {
+        let tweens = gameTimeline.getChildren();
+        for (let i in tweens) {
+            tweens[i].eventCallback("onComplete", null);
+        }
+    });
     gameTimeline.eventCallback("onUpdate", () => {
         onSeekbarUpdate(gameTimeline.progress());
     });
