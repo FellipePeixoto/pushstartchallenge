@@ -45,7 +45,7 @@ request.open("GET", "https://teste.pushstart.com.br/api/blocks/levels", false);
 request.send(null);
 var levels = JSON.parse(request.responseText);
 
-var gameTimeline;
+var gameTimeline = gsap.timeline();
 var endGameUI = buildEndGameMenu(app.renderer.width);
 appCurrentLevel = buildLevel(0);
 app.stage.addChild(appCurrentLevel.container, endGameUI);
@@ -60,6 +60,7 @@ function buildEndGameMenu(currentWidth) {
     leftSideBorder.endFill();
 
     let seekbarContainer = new PIXI.Container();
+    seekbarContainer.position.set(50, 30);
     let seekBar = new PIXI.Graphics();
     seekBar.beginFill(0xFFFFFF);
     seekBar.drawRect(0, 0, 500, 20);
@@ -117,10 +118,11 @@ function buildEndGameMenu(currentWidth) {
 
     container.visible = false;
     container.y = 250;
-    return container;
-}
 
-function buildReplay() {
+    bindReplay((progress) => {
+        seekCursor.x = seekBar.x + (seekBar.width - seekCursor.width) * progress;
+    });
+    return container;
 }
 
 function buildLevel(levelIndex) {
@@ -254,7 +256,7 @@ function blockClick() {
         return;
     }
 
-    gameTimeline = moveBlockAlong();
+    gameTimeline.add(moveBlockAlong());
     appCurrentLevel.blockIsMoving = true;
 }
 
@@ -341,7 +343,6 @@ function moveBlockAlong() {
             x: finalBlock.x,
             ease: "sine",
             onComplete: function () {
-
                 if (assertBlocks(appCurrentLevel.startBlock, appCurrentLevel.finalBlock)) {
                     sendScore(
                         appCurrentLevel.name,
@@ -365,6 +366,7 @@ function nextLevel() {
         nextLevelIndex = 0;
     }
 
+    gameTimeline.clear();
     app.stage.removeChild(appCurrentLevel.container, endGameUI);
     appCurrentLevel = buildLevel(nextLevelIndex);
     endGameUI = buildEndGameMenu(app.renderer.width);
@@ -418,15 +420,6 @@ function formatOptionsColorsToHEX(options) {
 
 function buildStartBlock(color, size) {
     let block = new PIXI.Graphics();
-    // let colorMatrix = new PIXI.filters.ColorMatrixFilter();
-    // block.filters = [colorMatrix];
-    // let r = color >> 16 & 0xFF;
-    // let g = color >> 8 & 0xFF;
-    // let b = color & 0xFF;
-    // colorMatrix.matrix[0] = r / 255;
-    // colorMatrix.matrix[6] = g / 255;
-    // colorMatrix.matrix[12] = b / 255;
-    // console.log(block.filters[0].matrix);
 
     block.beginFill(color);
     block.drawRect(0, 0, AppBlockSize, AppBlockSize * size);
@@ -627,33 +620,29 @@ function selectorModifierNext(nameId) {
     targetModifier.currOptionIndex = optionIndex;
 }
 
+function bindReplay(onSeekbarUpdate){
+    let tweens = gameTimeline.getChildren();
+    for (let i in tweens) {
+        tweens[i].eventCallback("onComplete", null);
+    }
+    gameTimeline.eventCallback("onUpdate", () => {
+        onSeekbarUpdate(gameTimeline.progress());
+    });
+}
+
 function playReplay() {
     gameTimeline.play(0);
 }
 
-function resumeReplay() {
-
-}
-
-function pauseReplay() {
-
-}
-
 function seekReplay(position) {
-    if (position > 1)
-    {
+    if (position > 1) {
         position = 1;
     }
-    if (position < 0)
-    {
+    if (position < 0) {
         position = 0;
     }
 
-    console.log(position);
-    console.log(gameTimeline.totalDuration());
-    
     let cursorPosition = gameTimeline.totalDuration() * position;
-    console.log(cursorPosition);
     gameTimeline.play(cursorPosition);
 }
 
