@@ -380,10 +380,10 @@ function sendScore(levelName, startTime, endTime) {
         score: diff
     });
 
-    // let request = new XMLHttpRequest();
-    // request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
-    // request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
-    // request.send(data);
+    let request = new XMLHttpRequest();
+    request.open("POST", "https://teste.pushstart.com.br/api/blocks/scores", false);
+    request.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+    request.send(data);
 }
 
 function reloadLevel() {
